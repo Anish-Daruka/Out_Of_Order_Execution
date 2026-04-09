@@ -33,10 +33,10 @@ struct ProcessorConfig {
 };
 
 struct ROBEntry {
-    int ROB_tag;
+    //int ROB_tag;
     bool ready=false;
     int value;
-    int dest; // Destination register
+    int dest_reg; // Destination register
     OpCode op;
     bool has_exception = false;
     int address; // for load/store instructions
@@ -46,9 +46,11 @@ struct RSEntry {
     int RS_tag;
     int ROB_tag;
     OpCode op;
-    int dest; // Destination register
+    int dest_reg; // Destination register
     int src1; // Source register 1
     int src2; // Source register 2
+    int tag1;
+    int tag2;
     bool ready1 = false;
     bool ready2 = false;
     int value1 = 0;
@@ -58,6 +60,6 @@ struct RSEntry {
 
 struct RATEntry{
     bool valid = false;
-    int RS_tag = -1; //RS tag
+    int ROB_tag = -1; //ROB tag
     int value = -1;
-}
+};

@@ -14,6 +14,11 @@ public:
     int pc;
     int clock_cycle;
 
+    bool has_fetched = false;
+    Instruction curr_fetched_instr;
+    int curr_fetched_instr_pc;
+
+
     // pipeline registers
 
     std::vector<Instruction> inst_memory;
@@ -27,6 +32,9 @@ public:
     std::vector<RSEntry> MulRS;
     std::vector<RATEntry> RAT; // register alias table
     std::vector<ROBEntry> ROB;
+    int rob_head = 0;
+    int rob_tail = 0;
+    int rob_count = 0;
 
 
     // register alias table / reorder buffer
@@ -93,14 +101,41 @@ public:
 
     void flush() {// during exceptions
     //reload the full RAT from the ARF
-
     }; 
 
     void broadcastOnCDB() {}; 
 
-    void stageFetch() {};
+    void stageFetch() {
+        if(has_fetched) return;
+        if(pc >= inst_memory.size()) return;
 
-    void stageDecode() {};
+        curr_fetched_instr = inst_memory[pc];
+        curr_fetched_instr_pc = pc;
+        has_fetched = true;
+
+        if(fetched_instr.op == OpCode::J){
+            pc = curr_fetched_instr.imm;
+        }
+        else if(fetched_instr.op == OpCode::BEQ || fetched_instr.op == OpCode::BNE 
+            || fetched_instr.op == OpCode::BLT || fetched_instr.op == OpCode::BLE){
+
+            int predicted = bp.predict(curr_fetched_instr_pc, curr_fetched_instr.imm, curr_fetched_instr.op);
+            pc = predicted;
+        }
+        else{
+            pc++;
+        }
+    };
+
+    void stageDecode() {
+        if(!has_fetched) return;
+
+        // check if RS and ROB have free spaces
+        // if not, stall and wait for next cycle
+        // if yes, then decode the instruction and allocate RS and ROB entries
+
+
+    };
 
     void stageExecuteAndBroadcast() {};
 
