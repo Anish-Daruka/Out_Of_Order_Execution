@@ -40,6 +40,7 @@ struct ROBEntry {
     OpCode op;
     bool has_exception = false;
     int address; // for load/store instructions
+    bool free = true;
 };
 
 struct RSEntry {
@@ -55,6 +56,7 @@ struct RSEntry {
     bool ready2 = false;
     int value1 = 0;
     int value2 = 0;
+    bool free = true;
 };
 
 
@@ -62,4 +64,5 @@ struct RATEntry{
     bool valid = false;
     int ROB_tag = -1; //ROB tag
     int value = -1;
+    int reg_num = -1;
 };

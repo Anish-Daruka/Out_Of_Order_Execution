@@ -127,12 +127,62 @@ public:
         }
     };
 
+    int getFreeROB() {
+        if (rob_count == rob_size) return -1; // ROB is full
+        return rob_tail; // Return the index of the free ROB entry
+    }
+
+    int getFreeRS(OpCode op) {
+        if(op == OpCode::ADD || op == OpCode::SUB || op == OpCode::ADDI){
+            for(int i = 0; i<AddRS.size(); i++){
+                if(AddRS[i].free) return i;
+            }
+        }
+        else if(op == OpCode::MUL || op == OpCode::DIV || op == OpCode::REM){
+            for(int i = 0; i<MulRS.size(); i++){
+                if(MulRS[i].free) return i;
+            }
+        }
+        return -1; 
+    }
+    RSEntry& getRSEntry(int rs_idx, OpCode op) {
+        if(op == OpCode::ADD || op == OpCode::SUB || op == OpCode::ADDI){
+            return AddRS[rs_idx];
+        }
+        else if(op == OpCode::MUL || op == OpCode::DIV || op == OpCode::REM){
+            return MulRS[rs_idx];
+        }
+        // add cases for other RS types
+    }
     void stageDecode() {
         if(!has_fetched) return;
+        // incomplete hai abhi, basics.h bhi check karna hai
 
         // check if RS and ROB have free spaces
         // if not, stall and wait for next cycle
         // if yes, then decode the instruction and allocate RS and ROB entries
+
+        int rob_idx =  getFreeROB();
+        int rs_idx = getFreeRS(curr_fetched_instr.op);
+
+        if(rob_idx == -1 || rs_idx == -1) return; // stall
+
+        // get entry from ROB and RS
+        ROBEntry& rob_entry = ROB[rob_idx];
+        RSEntry& rs_entry = getRSEntry(rs_idx, curr_fetched_instr.op);
+
+        rob_entry.op = curr_fetched_instr.op;
+        rob_entry.dest_reg = curr_fetched_instr.dest;
+        rob_entry.ready = false;
+        rob_entry.free = false;
+        
+        //setup RS entry
+        rs_entry.op = curr_fetched_instr.op;
+        rs_entry.dest_reg = curr_fetched_instr.dest;
+        rs_entry.free = false;
+        rs_entry.ROB_tag = rob_idx;
+
+        // check src1 
 
 
     };
