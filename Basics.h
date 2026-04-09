@@ -38,6 +38,8 @@ struct ROBEntry {
     int value;
     int dest; // Destination register
     OpCode op;
+    bool has_exception = false;
+    int address; // for load/store instructions
 };
 
 struct RSEntry {
@@ -46,12 +48,16 @@ struct RSEntry {
     OpCode op;
     int dest; // Destination register
     int src1; // Source register 1
-    int src2; // Source register 2  
+    int src2; // Source register 2
+    bool ready1 = false;
+    bool ready2 = false;
+    int value1 = 0;
+    int value2 = 0;
 };
 
 
 struct RATEntry{
     bool valid = false;
     int RS_tag = -1; //RS tag
-    int value = -1; 
+    int value = -1;
 }

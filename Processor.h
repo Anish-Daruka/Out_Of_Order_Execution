@@ -21,7 +21,6 @@ public:
     // architectural state (do not change)
     std::vector<int> ARF; // regFile
 
-
     std::vector<int> Memory; // Memory
     bool exception = false; // exception bit
     std::vector<RSEntry> AddRS;
