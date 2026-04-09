@@ -33,40 +33,25 @@ struct ProcessorConfig {
 };
 
 struct ROBEntry {
-    // valid bit, ready bit, architectural register ID
-    // other fields as required
-    bool valid = false;
-    bool ready = false;
-    int arch_reg_id = -1;
-    int value = 0;
-    int pc = -1;
-
-    bool exception_found = false;
-
-    bool is_branch = false;
-    bool mispredict = false;
-    int corrected_pc = -1;
+    int ROB_tag;
+    bool ready=false;
+    int value;
+    int dest; // Destination register
+    OpCode op;
 };
 
 struct RSEntry {
-    // value, tag, ready ... for both operands
-    // other fields as required\
-
-    bool busy = false;
+    int RS_tag;
+    int ROB_tag;
     OpCode op;
-    int val1 ,val2 = 0;
-    int tag1 = -1, tag2 = -1;
-
-    int dest_rob_tag = -1;
-    int latency_counter = 0;
-    int imm = 0;
-    int pc = -1;
-    int mem_addr = 0; 
-    
-    
+    int dest; // Destination register
+    int src1; // Source register 1
+    int src2; // Source register 2  
 };
 
 
 struct RATEntry{
-    bool
+    bool valid = false;
+    int RS_tag = -1; //RS tag
+    int value = -1; 
 }

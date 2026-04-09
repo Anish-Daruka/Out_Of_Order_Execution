@@ -20,12 +20,15 @@ public:
 
     // architectural state (do not change)
     std::vector<int> ARF; // regFile
-    std::vector<int> RAT; // register alias table
+
 
     std::vector<int> Memory; // Memory
     bool exception = false; // exception bit
     std::vector<RSEntry> AddRS;
     std::vector<RSEntry> MulRS;
+    std::vector<RATEntry> RAT; // register alias table
+    std::vector<ROBEntry> ROB;
+
 
     // register alias table / reorder buffer
 
@@ -36,12 +39,17 @@ public:
     Processor(ProcessorConfig& config) {
         pc = 0;
         clock_cycle = 0;
-        ARF.resize(config.num_regs, 0);
+        
         Memory.resize(config.mem_size);
+
+        ARF.resize(config.num_regs, 0);
+        RAT.resize(config.num_regs);
+        ROB.resize(config.rob_size);
+
+        //arithmatic
         AddRS.resize(config.adder_rs_size);
         MulRS.resize(config.multiplier_rs_size);
 
-        
         // Instantiate Hardware Units
         // Adder
         // Multiplier
@@ -102,10 +110,10 @@ public:
     bool step() { //assuming no jump statements for now
         if(pc>=inst_memory.size())
         return false;
-        clock_cycle++;
+        
         
         //if RS and RAT is empty , then stageFetch
-        
+        clock_cycle++;
         return true; 
     }
 
