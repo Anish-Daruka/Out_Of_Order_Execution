@@ -59,6 +59,28 @@ void Processor::loadProgram(const std::string& filename) {
 //flush during exceptions, reload the RAT from the ARF
 void Processor::flush() {
     //reload the full RAT from the ARF
+    for(int i = 0; i < (int)RAT.size(); i++){
+        RAT[i].valid = true;
+        RAT[i].tag = -1;
+        RAT[i].value = ARF[i];
+    }
+
+    //clear the ROB and RS
+    for(auto &entry : ROB){
+        entry.free = true;
+        entry.ready = false;
+        entry.tag = -1;
+    }
+
+    for(auto &unit : ExecutionUnits){
+        for(auto &rs_entry : unit.RS){
+            if(rs_entry != nullptr){
+                delete rs_entry;
+                rs_entry = nullptr;
+            }
+        }
+        unit.in_flight.clear();
+    }
 }
 
 //broadcast the result on the CDB to update the RS and ROB entries waiting for that result
@@ -70,6 +92,7 @@ void Processor::broadcastOnCDB(RSEntry* entry) {
     ROBEntry& rob_entry = getROBbyTag(tag);
     rob_entry.value = value;
     rob_entry.ready = true;
+    if(entry->exception) rob_entry.exception = true;
 
     // update RAT: clear the tag so future dispatches read from ARF or RAT.value
     for(int i = 0; i < (int)RAT.size(); i++){
@@ -168,7 +191,6 @@ void Processor::stageExecuteAndBroadcast() {
             if(entry->num_cycles_executed == unit.latency){
                 entry->result = unit.evaluate(entry);
                 ToBeBroadcasted.push_back(entry);
-                // free the RS slot
                 for(auto &rs_slot : unit.RS){
                     if(rs_slot == entry){ rs_slot = nullptr; break; }
                 }
@@ -208,7 +230,11 @@ void Processor::stageCommit() {
     if(rob_count == 0) return; // ROB is empty, nothing to commit
     ROBEntry& head_entry = getROBHead();
     if(!head_entry.ready) return; // head of ROB is not ready, stall
-
+    if(head_entry.exception){
+        exception = true;
+        flush();
+        return;
+    }
     // commit the instruction at the head of the ROB
     commitInstruction(head_entry);
 
@@ -307,14 +333,11 @@ bool Processor::step() {
         if(pc < (int)inst_memory.size())
             fetch_instr_idx = pc;
     }
+    clock_cycle++;
 
     if(exception){
-        flush();
-        exception = false;
-        return true;
+        return false;
     }
-
-    clock_cycle++;
     return true;
 }
 

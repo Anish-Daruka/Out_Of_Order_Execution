@@ -41,6 +41,7 @@ struct ROBEntry {
     bool has_exception = false;
     int address; // for load/store instructions
     bool free = true;
+    bool exception = false;
 };
 
 struct RSEntry {
@@ -57,6 +58,7 @@ struct RSEntry {
     int value2 = 0;
     int result=0;
     int num_cycles_executed = 0; // to track how many cycles the instruction has been executing for
+    bool exception = false;
 
     RSEntry(OpCode op, int dest_reg, int src1, int src2, int tag)
         : op(op), dest_reg(dest_reg), src1(src1), src2(src2), tag(tag) {}

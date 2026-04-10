@@ -12,7 +12,7 @@ public:
     std::vector<RSEntry*> in_flight; // pipelined: entries currently executing
 
     bool has_result = false;
-    bool has_exception = false;
+    // bool has_exception = false;
 
     ExecutionUnit(UnitType name, int latency, int rs_size) : name(name), latency(latency) {
         RS.resize(rs_size, nullptr);
@@ -27,6 +27,11 @@ public:
     }
 
     int evaluate(RSEntry* entry) {
+        if(entry == nullptr) return 0;
+        if(entry->op == OpCode::DIV && entry->value2 == 0){
+            entry->exception = true;
+            return 0;
+        }
         switch(entry->op) {
             case OpCode::ADD: case OpCode::ADDI: return entry->value1 + entry->value2;
             case OpCode::SUB:  return entry->value1 - entry->value2;
