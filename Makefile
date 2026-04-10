@@ -10,7 +10,7 @@ CXXFLAGS = -std=c++17 -Wall
 # and will have its own main() function.
 compile:
 	@echo "Compiling simulator:"
-	$(CXX) $(CXXFLAGS) main.cpp -o main
+	$(CXX) $(CXXFLAGS) main.cpp Processor.cpp -o main
 	@echo "Build successful, 'main' created."
 
 # ==========================================
@@ -21,6 +21,6 @@ compile:
 # Example below assumes a Python script named 'compiler.py'.
 run: compile
 	@echo "Preprocessing main..."
-	python3 PreProcessor.py $(FILE)
+	python3 PreProcessor.py $(TC)
 	@echo "Preprocessing complete."
-	./main preProcessed/processed$(FILE).txt
+	./main preProcessed/processed$(TC).txt > output/output$(TC).txt
