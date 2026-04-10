@@ -14,12 +14,16 @@ Processor::Processor(ProcessorConfig& config) {
     RAT.resize(config.num_regs);
     ROB.resize(config.rob_size);
 
-    // Instantiate Hardware Units
+    // Instantiate Execution Units
     ExecutionUnits.push_back(ExecutionUnit(UnitType::ADDER,      config.add_lat,    config.adder_rs_size));
     ExecutionUnits.push_back(ExecutionUnit(UnitType::MULTIPLIER, config.mul_lat,    config.mult_rs_size));
     ExecutionUnits.push_back(ExecutionUnit(UnitType::DIVIDER,    config.div_lat,    config.div_rs_size));
     ExecutionUnits.push_back(ExecutionUnit(UnitType::BRANCH,     config.add_lat,    config.br_rs_size));
     ExecutionUnits.push_back(ExecutionUnit(UnitType::LOGIC,      config.logic_lat,  config.logic_rs_size));
+
+    //Instantiate LSQ
+    lsq = new LoadStoreQueue(config.mem_lat, config.lsq_rs_size);
+
 }
 
 // load the program from the input file into instruction memory
@@ -37,8 +41,10 @@ void Processor::loadProgram(const std::string& filename) {
         temp = first_line.substr(0,8);
         // if first line starts with MEM_INIT
         if(temp == "MEM_INIT"){
-            for(int j = 8; j<(int)first_line.length(); j = j+2){
-                Memory.push_back(first_line[j]-48);     //convert char to int and push to memory
+            std::istringstream iss(first_line.substr(9));
+            int val, idx = 0;
+            while(iss >> val && idx < (int)Memory.size()){
+                Memory[idx++] = val;
             }
             mem_initialised = true;
         }
@@ -81,6 +87,12 @@ void Processor::flush() {
         }
         unit.in_flight.clear();
     }
+    if(lsq) lsq->queue.clear();
+
+    // reset ROB pointers and decode stage
+    for(auto &entry : ROB){ entry.free = true; entry.ready = false; entry.tag = -1; }
+    rob_head = rob_tail = rob_count = 0;
+    decode_instr_idx = -1;
 }
 
 //broadcast the result on the CDB to update the RS and ROB entries waiting for that result
@@ -103,10 +115,11 @@ void Processor::broadcastOnCDB(RSEntry* entry) {
         }
     }
 
-    // wake up waiting RS entries in all units
+    // wake up waiting RS entries in all units and LSQ
     for(auto &unit : ExecutionUnits){
         unit.capture(tag, value);
     }
+    if(lsq) lsq->capture(tag, value);
 }
 
 
@@ -115,18 +128,62 @@ void Processor::broadcastOnCDB(RSEntry* entry) {
 
 void Processor::stageFetch() {
     if(fetch_instr_idx == -1) return; // no instruction to fetch, stall
+
+    Instruction& instr = inst_memory[fetch_instr_idx];
+    if(instr.op == OpCode::J)//Jump completes in fetch stage itself
+    {
+        pc = instr.imm;
+        if(pc < (int)inst_memory.size())
+            fetch_instr_idx = pc;
+        else
+            fetch_instr_idx = -1; 
+        return;
+    }
+
     if(decode_instr_idx != -1) return; // decode stage is busy, stall
     // move the fetched instruction to decode stage
     decode_instr_idx = fetch_instr_idx;
-    fetch_instr_idx = -1;
+
+    //decide the next instruction to be fetched in the next cycle
+    if(instr.op == OpCode::BEQ || instr.op == OpCode::BNE ||
+       instr.op == OpCode::BLT || instr.op == OpCode::BLE){
+        pc = bp.predict(fetch_instr_idx, instr);
+        decode_predicted_pc = pc; // store predicted next PC for this branch
+    }
+    else{
+        pc = pc + 1;
+        decode_predicted_pc = -1;
+    }
+    if(pc < (int)inst_memory.size())
+        fetch_instr_idx = pc;
+    else
+        fetch_instr_idx = -1;
 }
 
 void Processor::stageDecode() {
     if(decode_instr_idx == -1) return;
     Instruction& instr = inst_memory[decode_instr_idx];
     OpCode op = instr.op;
-
+    
     if(isROBFull()) return; // ROB is full, stall
+
+
+    //if it is lw and sw
+    if(op == OpCode::LW || op == OpCode::SW){
+        if(!lsq->canAccept()) return; // LSQ is full, stall
+        seq_num++;
+        int tag = seq_num;
+        lsq->addEntry(instr, tag, RAT, ARF);
+        pushToROB(op, tag, (op == OpCode::LW ? instr.dest : 0), 0);
+        getROBbyTag(tag).instr_pc = instr.pc;
+        // LW writes to a register: update RAT
+        if(op == OpCode::LW){
+            RAT[instr.dest].tag = tag;
+            RAT[instr.dest].valid = false;
+        }
+        decode_instr_idx = -1;
+        return;
+    }
 
     ExecutionUnit& target_unit = getExecutionUnitForOp(op);
     int free_rs_idx = -1;
@@ -174,8 +231,22 @@ void Processor::stageDecode() {
     RAT[instr.dest].tag = tag;
     RAT[instr.dest].valid = false;
 
+    // for branches: store imm (target) and instr_pc so evaluate can compute actual next PC
+    if(op == OpCode::BEQ || op == OpCode::BNE ||
+       op == OpCode::BLT || op == OpCode::BLE){
+        new_RS_entry->imm = instr.imm;
+        new_RS_entry->instr_pc = instr.pc;
+    }
+
     target_unit.RS[free_rs_idx] = new_RS_entry;
     pushToROB(op, tag, instr.dest, 0);
+
+    // set instr_pc and predicted_pc in the ROB entry
+    ROBEntry& rob_entry = getROBbyTag(tag);
+    rob_entry.instr_pc = instr.pc;
+    if(op == OpCode::BEQ || op == OpCode::BNE ||
+       op == OpCode::BLT || op == OpCode::BLE)
+        rob_entry.predicted_pc = decode_predicted_pc;
 
     decode_instr_idx = -1; // decode stage is now free
 }
@@ -225,18 +296,57 @@ void Processor::stageExecuteAndBroadcast() {
     }
 }
 
+
+void Processor::LSQAndBroadcast() {
+    if(lsq == nullptr) return;
+    LSQEntry* completed = lsq->executeCycle(Memory);
+    if(completed == nullptr) return;
+
+    int tag = completed->tag;
+
+    // update ROB entry
+    ROBEntry& rob_entry = getROBbyTag(tag);
+    rob_entry.value   = completed->result;
+    rob_entry.address = completed->address;
+    rob_entry.ready   = true;
+    rob_entry.exception = completed->exception;
+
+    // for LW: update RAT so dependent instructions can read the value
+    if(completed->op == OpCode::LW){
+        for(int i = 0; i < (int)RAT.size(); i++){
+            if(RAT[i].tag == tag){
+                RAT[i].valid = true;
+                RAT[i].tag = -1;
+                RAT[i].value = completed->result;
+            }
+        }
+    }
+
+    // wake up waiting RS and LSQ entries
+    for(auto &unit : ExecutionUnits) unit.capture(tag, completed->result);
+    lsq->capture(tag, completed->result);
+}
+
 void Processor::stageCommit() {
     //check the topmost entry of the ROB, if it is ready, then commit it and update the ARF and RAT accordingly, else stall
     if(rob_count == 0) return; // ROB is empty, nothing to commit
     ROBEntry& head_entry = getROBHead();
     if(!head_entry.ready) return; // head of ROB is not ready, stall
     if(head_entry.exception){
+        pc = head_entry.instr_pc; // set PC to faulting instruction
         exception = true;
         flush();
         return;
     }
     // commit the instruction at the head of the ROB
     commitInstruction(head_entry);
+
+    // if flush was triggered (branch misprediction), ROB is already cleared — skip pop/freeHead
+    if(rob_count == 0) return;
+
+    // free LSQ head for memory instructions
+    if(head_entry.op == OpCode::LW || head_entry.op == OpCode::SW)
+        lsq->freeHead();
 
     //pop the head of the ROB
     popROBHead();
@@ -280,11 +390,29 @@ void Processor::popROBHead() {
 }
 
 void Processor::commitInstruction(ROBEntry& entry) {
-    if(entry.dest_reg != 0) // x0 always stays 0
-        ARF[entry.dest_reg] = entry.value;
-    // clear RAT entry if no newer instruction is pending for this register
-    if(RAT[entry.dest_reg].tag == -1)
-        RAT[entry.dest_reg].valid = false;
+    if(entry.op == OpCode::BEQ || entry.op == OpCode::BNE ||
+       entry.op == OpCode::BLT || entry.op == OpCode::BLE){
+        int actual_next_pc = entry.value; // computed by branch unit in evaluate
+        bool taken = (actual_next_pc != entry.instr_pc + 1);
+        bool was_correct = (actual_next_pc == entry.predicted_pc);
+        bp.update(entry.instr_pc, actual_next_pc, taken, was_correct);
+        if(!was_correct){
+            pc = actual_next_pc;
+            fetch_instr_idx = (actual_next_pc < (int)inst_memory.size()) ? actual_next_pc : -1;
+            flush(); // clears ROB, RS, LSQ, RAT, resets rob_count
+        }
+    }
+    else if(entry.op== OpCode::SW){
+        Memory[entry.address] = entry.value; // commit the store to memory
+    }
+    else
+    {
+        if(entry.dest_reg != 0) // x0 always stays 0
+            ARF[entry.dest_reg] = entry.value;
+        // clear RAT entry if no newer instruction is pending for this register
+        if(RAT[entry.dest_reg].tag == -1)
+            RAT[entry.dest_reg].valid = false;
+    }
 }
 
 
@@ -319,29 +447,23 @@ ExecutionUnit& Processor::getExecutionUnitForOp(OpCode op) {
 // ----- Main step function -----
 bool Processor::step() {
     //stop when no further instructions to fetch, decode, execute or commit
+ 
     if(pc >= (int)inst_memory.size() && rob_count == 0 && fetch_instr_idx == -1 && decode_instr_idx == -1) return false;
 
     // process stages in reverse pipeline order
     stageCommit();
     stageExecuteAndBroadcast();
+    LSQAndBroadcast();
     if(decode_instr_idx != -1) stageDecode();
-    if(fetch_instr_idx != -1) stageFetch();
+    if(fetch_instr_idx != -1) stageFetch(); //fetches current instruction and moves it to decode,then decides which instruction will be fetched in next cycle
 
-    // advance fetch pointer once current fetch slot empties
-    if(fetch_instr_idx == -1 && pc < (int)inst_memory.size()){
-        pc++;
-        if(pc < (int)inst_memory.size())
-            fetch_instr_idx = pc;
-    }
+   
     clock_cycle++;
-
     if(exception){
         return false;
     }
     return true;
 }
-
-
 //check architectural state
 void Processor::dumpArchitecturalState() {
     std::cout << "\n=== ARCHITECTURAL STATE (CYCLE " << clock_cycle << ") ===\n";

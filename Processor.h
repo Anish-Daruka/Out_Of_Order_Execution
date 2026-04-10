@@ -27,6 +27,7 @@ public:
     std::vector<RATEntry> RAT; // register alias table
     int fetch_instr_idx = -1; // index of the instruction in the inst_memory will be in fetch stage in next cycle
     int decode_instr_idx = -1; // index of the instruction in the inst_memory that will be in decode stage in next cycle
+    int decode_predicted_pc = -1; // predicted next PC for the instruction currently in decode (branches only)
 
 
     LoadStoreQueue* lsq = nullptr;
@@ -45,6 +46,7 @@ public:
     void stageFetch();
     void stageDecode();
     void stageExecuteAndBroadcast();
+    void LSQAndBroadcast();
     void stageCommit();
 
     // --- ROB Helpers ---

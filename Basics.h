@@ -35,13 +35,15 @@ struct ProcessorConfig {
 struct ROBEntry {
     int tag = -1; // seq_num tag assigned at dispatch
     bool ready=false;
-    int value;
-    int dest_reg; // Destination register
+    int value = 0;
+    int dest_reg = 0; // Destination register
     OpCode op;
     bool has_exception = false;
-    int address; // for load/store instructions
+    int address = 0; // for load/store instructions
     bool free = true;
     bool exception = false;
+    int instr_pc = 0;      // PC of the instruction (for exceptions and branches)
+    int predicted_pc = -1; // predicted next PC (for branch misprediction check)
 };
 
 struct RSEntry {
@@ -59,7 +61,8 @@ struct RSEntry {
     int result=0;
     int num_cycles_executed = 0; // to track how many cycles the instruction has been executing for
     bool exception = false;
-
+    int instr_pc = 0; // PC of this instruction (needed for branch result computation)
+    int imm = 0;      // immediate / branch target
     RSEntry(OpCode op, int dest_reg, int src1, int src2, int tag)
         : op(op), dest_reg(dest_reg), src1(src1), src2(src2), tag(tag) {}
     RSEntry() = default;

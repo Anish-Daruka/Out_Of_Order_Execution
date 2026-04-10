@@ -1,0 +1,2 @@
+addi x1 x0 8
+xori x2 x1 3
