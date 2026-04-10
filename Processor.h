@@ -13,203 +13,54 @@ class Processor {
 public:
     int pc;
     int clock_cycle;
-
-    bool has_fetched = false;
-    Instruction curr_fetched_instr;
-    int curr_fetched_instr_pc;
-
+    int seq_num=0; // tag for ROB_entry ,always incremented whenever instruction added to RS or ROB
 
     // pipeline registers
-
     std::vector<Instruction> inst_memory;
+    std::vector<ExecutionUnit> ExecutionUnits; // list of execution units
 
     // architectural state (do not change)
     std::vector<int> ARF; // regFile
 
     std::vector<int> Memory; // Memory
     bool exception = false; // exception bit
-    std::vector<RSEntry> AddRS;
-    std::vector<RSEntry> MulRS;
     std::vector<RATEntry> RAT; // register alias table
-    std::vector<ROBEntry> ROB;
+    int fetch_instr_idx = -1; // index of the instruction in the inst_memory will be in fetch stage in next cycle
+    int decode_instr_idx = -1; // index of the instruction in the inst_memory that will be in decode stage in next cycle
+
+
+    LoadStoreQueue* lsq = nullptr;
+    BranchPredictor bp;
+
+    Processor(ProcessorConfig& config);
+
+    void loadProgram(const std::string& filename);
+
+    // -----Helper functions------
+    void flush();
+    void broadcastOnCDB(RSEntry* entry);
+    ExecutionUnit& getExecutionUnitForOp(OpCode op);
+
+    // --- Pipeline Stages ---
+    void stageFetch();
+    void stageDecode();
+    void stageExecuteAndBroadcast();
+    void stageCommit();
+
+    // --- ROB Helpers ---
     int rob_head = 0;
     int rob_tail = 0;
     int rob_count = 0;
+    std::vector<ROBEntry> ROB;
+    ROBEntry& getROBHead();
+    ROBEntry& getROBbyTag(int tag);
+    bool isROBFull();
+    void pushToROB(OpCode op, int tag,int dest_reg, int value);
+    void popROBHead();
+    void commitInstruction(ROBEntry& entry);
 
 
-    // register alias table / reorder buffer
 
-    std::vector<ExecutionUnit> units;
-    LoadStoreQueue* lsq;
-    BranchPredictor bp;
-
-    Processor(ProcessorConfig& config) {
-        pc = 0;
-        clock_cycle = 0;
-        
-        Memory.resize(config.mem_size);
-
-        ARF.resize(config.num_regs, 0);
-        RAT.resize(config.num_regs);
-        ROB.resize(config.rob_size);
-
-        //arithmatic
-        AddRS.resize(config.adder_rs_size);
-        MulRS.resize(config.multiplier_rs_size);
-
-        // Instantiate Hardware Units
-        // Adder
-        // Multiplier
-        // Divider
-        // Branch Computation
-        // Bitwise Logic
-        // Load-Store Unit
-    }
-
-    void loadProgram(const std::string& filename) {
-        std::ifstream file(filename);
-        std::string instr;
-
-        std::string first_line;
-        bool mem_initialised = false;
-        std::getline(file,first_line);
-
-        // check for memory allocation
-        if(first_line.length()>8){
-            std::string temp;
-            temp = first_line.substr(0,8);
-            // if first line starts with MEM_INIT
-            if(temp == "MEM_INIT"){
-                for(int j = 8; j<first_line.length(); j = j+2){
-                    Memory.push_back(first_line[j]-48);     //convert char to int and push to memory
-                }
-                mem_initialised = true;
-            }
-        }
-        // if not allocated, first line should be an instruction
-        if(!mem_initialised){
-            Instruction first_instr = stringToInstr(first_line);
-            first_instr.pc = 0;
-            inst_memory.push_back(first_instr);
-        }
-        while(std::getline(file,instr)){
-            Instruction new_instr = stringToInstr(instr);
-            new_instr.pc = inst_memory.size();
-            inst_memory.push_back(new_instr);
-        }
-    }
-
-    void flush() {// during exceptions
-    //reload the full RAT from the ARF
-    }; 
-
-    void broadcastOnCDB() {}; 
-
-    void stageFetch() {
-        if(has_fetched) return;
-        if(pc >= inst_memory.size()) return;
-
-        curr_fetched_instr = inst_memory[pc];
-        curr_fetched_instr_pc = pc;
-        has_fetched = true;
-
-        if(fetched_instr.op == OpCode::J){
-            pc = curr_fetched_instr.imm;
-        }
-        else if(fetched_instr.op == OpCode::BEQ || fetched_instr.op == OpCode::BNE 
-            || fetched_instr.op == OpCode::BLT || fetched_instr.op == OpCode::BLE){
-
-            int predicted = bp.predict(curr_fetched_instr_pc, curr_fetched_instr.imm, curr_fetched_instr.op);
-            pc = predicted;
-        }
-        else{
-            pc++;
-        }
-    };
-
-    int getFreeROB() {
-        if (rob_count == rob_size) return -1; // ROB is full
-        return rob_tail; // Return the index of the free ROB entry
-    }
-
-    int getFreeRS(OpCode op) {
-        if(op == OpCode::ADD || op == OpCode::SUB || op == OpCode::ADDI){
-            for(int i = 0; i<AddRS.size(); i++){
-                if(AddRS[i].free) return i;
-            }
-        }
-        else if(op == OpCode::MUL || op == OpCode::DIV || op == OpCode::REM){
-            for(int i = 0; i<MulRS.size(); i++){
-                if(MulRS[i].free) return i;
-            }
-        }
-        return -1; 
-    }
-    RSEntry& getRSEntry(int rs_idx, OpCode op) {
-        if(op == OpCode::ADD || op == OpCode::SUB || op == OpCode::ADDI){
-            return AddRS[rs_idx];
-        }
-        else if(op == OpCode::MUL || op == OpCode::DIV || op == OpCode::REM){
-            return MulRS[rs_idx];
-        }
-        // add cases for other RS types
-    }
-    void stageDecode() {
-        if(!has_fetched) return;
-        // incomplete hai abhi, basics.h bhi check karna hai
-
-        // check if RS and ROB have free spaces
-        // if not, stall and wait for next cycle
-        // if yes, then decode the instruction and allocate RS and ROB entries
-
-        int rob_idx =  getFreeROB();
-        int rs_idx = getFreeRS(curr_fetched_instr.op);
-
-        if(rob_idx == -1 || rs_idx == -1) return; // stall
-
-        // get entry from ROB and RS
-        ROBEntry& rob_entry = ROB[rob_idx];
-        RSEntry& rs_entry = getRSEntry(rs_idx, curr_fetched_instr.op);
-
-        rob_entry.op = curr_fetched_instr.op;
-        rob_entry.dest_reg = curr_fetched_instr.dest;
-        rob_entry.ready = false;
-        rob_entry.free = false;
-        
-        //setup RS entry
-        rs_entry.op = curr_fetched_instr.op;
-        rs_entry.dest_reg = curr_fetched_instr.dest;
-        rs_entry.free = false;
-        rs_entry.ROB_tag = rob_idx;
-
-        // check src1 
-
-
-    };
-
-    void stageExecuteAndBroadcast() {};
-
-    void stageCommit() {};
-
-    bool step() { //assuming no jump statements for now
-        if(pc>=inst_memory.size())
-        return false;
-        
-        
-        //if RS and RAT is empty , then stageFetch
-        clock_cycle++;
-        return true; 
-    }
-
-    void dumpArchitecturalState() {
-        std::cout << "\n=== ARCHITECTURAL STATE (CYCLE " << clock_cycle << ") ===\n";
-        for (int i = 0; i < ARF.size(); i++) {
-            std::cout << "x" << i << ": " << std::setw(4) << ARF[i] << " | ";
-            if ((i+1) % 8 == 0) std::cout << std::endl;
-        }
-        if (exception) {
-            std::cout << "EXCEPTION raised by instruction " << pc + 1 << std::endl;
-        }
-        std::cout << "Branch Predictor Stats: " << bp.correct_predictions << "/" << bp.total_branches << " correct.\n";
-    }
+    bool step();
+    void dumpArchitecturalState();
 };
