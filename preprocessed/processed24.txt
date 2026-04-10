@@ -1,0 +1,3 @@
+beq x0 x0 2
+addi x1 x0 99
+addi x2 x0 1

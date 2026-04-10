@@ -1,0 +1,4 @@
+MEM_INIT 0
+addi x1 x0 0
+addi x2 x0 55
+sw x2 0(x1)

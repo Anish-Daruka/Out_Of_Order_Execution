@@ -1,0 +1,10 @@
+Test: ADD
+Expected final: x1=2, x2=3, x3=5; Memory unchanged.
+Cycle trace:
+C1: F(addi x1 x0 2)
+C2: D(i1) | F(addi x2 x0 3)
+C3: E(i1 1/2) | D(i2) | F(add x3 x1 x2)
+C4: E(i1 2/2) | E(i2 1/2) | D(i3)
+C5: C(i1) | E(i2 2/2) | E(i3 1/2)
+C6: C(i2) | E(i3 2/2)
+C7: C(i3)

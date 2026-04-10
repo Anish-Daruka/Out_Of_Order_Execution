@@ -1,0 +1,9 @@
+Test: J
+Expected final: x1=0 (skipped), x2=1; Memory unchanged.
+Cycle trace:
+C1: F(j target) -> PC jumps to target immediately
+C2: F(addi x2 x0 1)
+C3: D(i1)
+C4: E(i1 1/2)
+C5: E(i1 2/2)
+C6: C(i1)

@@ -1,0 +1,11 @@
+Test: LW
+Expected final: x1=0, x2=42; Memory[0]=42 unchanged.
+Cycle trace:
+C1: F(addi x1 x0 0)
+C2: D(i1) | F(lw x2 A(x1))
+C3: E(i1 1/2) | D(i2)
+C4: E(i1 2/2) | E(i2 1/4)
+C5: C(i1) | E(i2 2/4)
+C6: E(i2 3/4)
+C7: E(i2 4/4)
+C8: C(i2)

@@ -1,0 +1,10 @@
+Test: BLT (taken)
+Expected final: x1=1, x2=0 (skipped), x3=1; Memory unchanged.
+Cycle trace:
+C1: F(addi x1 x0 1)
+C2: D(i1) | F(blt x0 x1 target)
+C3: E(i1 1/2) | D(i2) | F(addi x3 x0 1) [predicted taken]
+C4: E(i1 2/2) | E(i2 1/2) | D(i3)
+C5: C(i1) | E(i2 2/2, taken) | E(i3 1/2)
+C6: C(i2) | E(i3 2/2)
+C7: C(i3)
