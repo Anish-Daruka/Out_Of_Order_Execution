@@ -51,13 +51,20 @@ def preprocess(input_file, output_file=None):
         final_output.append(mem_str)
         
     branch_ops = {'beq', 'bne', 'blt', 'ble'}
+    jump_ops = {'j'}
     for pc2, inst in enumerate(clean_instructions):
-        # check if branch target is a raw integer BEFORE label substitution
+        # check if branch/jump target is a raw integer BEFORE label substitution
         raw_parts = inst.replace(',', ' ').split()
         raw_branch_offset = None
+        raw_jump_offset = None
         if raw_parts and raw_parts[0].lower() in branch_ops and len(raw_parts) == 4:
             try:
                 raw_branch_offset = int(raw_parts[3])
+            except ValueError:
+                pass  # it's a label, will be resolved below
+        if raw_parts and raw_parts[0].lower() in jump_ops and len(raw_parts) == 2:
+            try:
+                raw_jump_offset = int(raw_parts[1])
             except ValueError:
                 pass  # it's a label, will be resolved below
 

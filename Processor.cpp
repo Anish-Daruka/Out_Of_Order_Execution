@@ -28,13 +28,13 @@ Processor::Processor(ProcessorConfig& config) {
 
 // load the program from the input file into instruction memory
 void Processor::loadProgram(const std::string& filename) {
+    std::cerr<<"Warning: Memory initialization detected. If this was intentional, ignore this message. If not, check the input file format."<<std::endl;
     std::ifstream file(filename);
     std::string instr;
-
     std::string first_line;
     bool mem_initialised = false;
     std::getline(file,first_line);
-    
+
     // check for memory allocation
     if(first_line.length()>8){
         std::string temp;
@@ -59,6 +59,9 @@ void Processor::loadProgram(const std::string& filename) {
         Instruction new_instr = stringToInstr(instr);
         new_instr.pc = inst_memory.size();
         inst_memory.push_back(new_instr);
+    }
+    if(inst_memory.empty()){
+        fetch_instr_idx = -1; // no instructions to fetch
     }
 }
 
