@@ -65,15 +65,9 @@ def preprocess(input_file, output_file=None):
             inst = re.sub(fr'\b{m_label}\(', f'{addr}(', inst)
 
         for b_label, target_pc in labels.items():
-            inst = re.sub(fr'\b{b_label}\b', str(target_pc), inst)
+            inst = re.sub(fr'\b{b_label}\b', str(target_pc - pc2), inst)
 
         inst = inst.replace(',', ' ')
-
-        # if branch target was a raw number, convert relative offset to absolute PC
-        if raw_branch_offset is not None:
-            parts = inst.split()
-            parts[3] = str(pc2 + raw_branch_offset)
-            inst = ' '.join(parts)
 
         final_output.append(inst)
 
@@ -81,6 +75,6 @@ def preprocess(input_file, output_file=None):
         f.write('\n'.join(final_output))
 
 if __name__ == "__main__":
-    input_file="programs/"+f"code{sys.argv[1]}.txt"
-    output_file="preprocessed/"+f"processed{sys.argv[1]}.txt"
+    input_file=sys.argv[1]
+    output_file=sys.argv[1]
     preprocess(input_file, output_file)

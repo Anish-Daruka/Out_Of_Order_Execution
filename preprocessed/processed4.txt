@@ -6,4 +6,4 @@ lw x4 30(x1)
 add x5 x3 x4
 sw x5 60(x1)
 addi x1 x1 1
-blt x1 x31 2
+blt x1 x31 -5

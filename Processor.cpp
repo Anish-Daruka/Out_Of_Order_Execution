@@ -34,7 +34,7 @@ void Processor::loadProgram(const std::string& filename) {
     std::string first_line;
     bool mem_initialised = false;
     std::getline(file,first_line);
-
+    
     // check for memory allocation
     if(first_line.length()>8){
         std::string temp;
@@ -50,7 +50,7 @@ void Processor::loadProgram(const std::string& filename) {
         }
     }
     // if not allocated, first line should be an instruction
-    if(!mem_initialised){
+    if(!mem_initialised && !first_line.empty()){
         Instruction first_instr = stringToInstr(first_line);
         first_instr.pc = 0;
         inst_memory.push_back(first_instr);
@@ -134,7 +134,7 @@ void Processor::stageFetch() {
     Instruction& instr = inst_memory[fetch_instr_idx];
     if(instr.op == OpCode::J)//Jump completes in fetch stage itself
     {
-        pc = instr.imm;
+        pc = fetch_instr_idx + instr.imm;
         if(pc < (int)inst_memory.size())
             fetch_instr_idx = pc;
         else

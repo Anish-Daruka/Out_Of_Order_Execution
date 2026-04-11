@@ -14,8 +14,8 @@ mul x13 x11 x12
 add x13 x13 x10
 sw x13 128(x7)
 addi x4 x4 1
-blt x4 x1 3
+blt x4 x1 -12
 addi x3 x3 1
-blt x3 x1 2
+blt x3 x1 -15
 addi x2 x2 1
-blt x2 x1 1
+blt x2 x1 -18

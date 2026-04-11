@@ -38,7 +38,7 @@ public:
             else if(entry->op == OpCode::BNE) taken = (entry->value1 != entry->value2);
             else if(entry->op == OpCode::BLT) taken = (entry->value1 <  entry->value2);
             else if(entry->op == OpCode::BLE) taken = (entry->value1 <= entry->value2);
-            return taken ? entry->imm : (entry->instr_pc + 1);
+            return taken ? (entry->instr_pc + entry->imm) : (entry->instr_pc + 1);
         }
 
         // div/rem by zero or INT_MIN/-1 overflow

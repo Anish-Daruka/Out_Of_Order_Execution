@@ -1,4 +1,3 @@
-j target
+j 2
 addi x1 x0 99
-target:
 addi x2 x0 1

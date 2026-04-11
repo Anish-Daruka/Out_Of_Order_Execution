@@ -22,12 +22,12 @@ public:
     int predict(int current_pc, Instruction inst) {
         int pc = current_pc +1;
         OpCode op = inst.op;
-        if(op == OpCode::J) return inst.imm;
-        
+        if(op == OpCode::J) return current_pc + inst.imm;
+
         if(op == OpCode::BEQ || op == OpCode::BNE || op == OpCode::BLT || op == OpCode::BLE){
             int state = getPcState(current_pc);
 
-            if(state <=1) return inst.imm;
+            if(state <=1) return current_pc + inst.imm;
             else return pc;
         }
         
