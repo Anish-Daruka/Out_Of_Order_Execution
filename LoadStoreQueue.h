@@ -81,43 +81,64 @@ public:
     LSQEntry* executeCycle(std::vector<int>& Memory) {
         if(queue.empty()) return nullptr;
 
-        // find oldest non-executed entry (all preceding must be executed already)
-        LSQEntry* to_execute = nullptr;
+        LSQEntry* completed = nullptr;
+
+        // Step 1: advance all in-flight (started, not yet executed) entries
         for(auto& entry : queue) {
-            if(!entry.executed) {
-                if(entry.ready1 && entry.ready2) to_execute = &entry;
-                break; // only the oldest non-executed can run
+            if(entry.num_cycles_executed == 0 || entry.executed) continue;
+            entry.num_cycles_executed++;
+            if(entry.num_cycles_executed >= latency) {
+                entry.address = entry.value1 + entry.imm;
+                if(entry.address < 0 || entry.address >= (int)Memory.size()) {
+                    entry.exception = true;
+                } else if(entry.op == OpCode::LW) {
+                    int forwarded = Memory[entry.address];
+                    for(auto& prev : queue) {
+                        if(&prev == &entry) break;
+                        if(prev.op == OpCode::SW && prev.address == entry.address)
+                            forwarded = prev.value2;
+                    }
+                    entry.result = forwarded;
+                } else {
+                    entry.result = entry.value2;
+                }
+                entry.executed = true;
+                completed = &entry;
             }
         }
-        if(to_execute == nullptr) return nullptr;
 
-        to_execute->num_cycles_executed++;
-        if(to_execute->num_cycles_executed < latency) return nullptr;
-
-        // final cycle: compute address and result
-        to_execute->address = to_execute->value1 + to_execute->imm;
-
-        if(to_execute->address < 0 || to_execute->address >= (int)Memory.size()) {
-            to_execute->exception = true;
-            to_execute->executed = true;
-            return to_execute;
-        }
-
-        if(to_execute->op == OpCode::LW) {
-            // store-to-load forwarding: find most recent preceding SW with same address
-            int forwarded = Memory[to_execute->address];
-            for(auto& entry : queue) {
-                if(&entry == to_execute) break;
-                if(entry.op == OpCode::SW && entry.address == to_execute->address)
-                    forwarded = entry.value2;
+        // Step 2: start one new entry per cycle (oldest first, in-order)
+        // Next entry can start only after the predecessor has been running for >= 2 cycles
+        for(int i = 0; i < (int)queue.size(); i++) {
+            auto& entry = queue[i];
+            if(entry.executed) continue;
+            if(entry.num_cycles_executed > 0) continue; // already started
+            if(i > 0 && !queue[i-1].executed && queue[i-1].num_cycles_executed == 0) break;
+            if(entry.ready1 && entry.ready2) {
+                entry.num_cycles_executed = 1;
+                if(latency == 1) {
+                    entry.address = entry.value1 + entry.imm;
+                    if(entry.address < 0 || entry.address >= (int)Memory.size()) {
+                        entry.exception = true;
+                    } else if(entry.op == OpCode::LW) {
+                        int forwarded = Memory[entry.address];
+                        for(auto& prev : queue) {
+                            if(&prev == &entry) break;
+                            if(prev.op == OpCode::SW && prev.address == entry.address)
+                                forwarded = prev.value2;
+                        }
+                        entry.result = forwarded;
+                    } else {
+                        entry.result = entry.value2;
+                    }
+                    entry.executed = true;
+                    if(completed == nullptr) completed = &entry;
+                }
             }
-            to_execute->result = forwarded;
-        } else { // SW
-            to_execute->result = to_execute->value2;
+            break; // in-order: stop at first non-started entry (ready or not)
         }
 
-        to_execute->executed = true;
-        return to_execute;
+        return completed;
     }
 
     void freeHead() {

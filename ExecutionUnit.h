@@ -40,10 +40,18 @@ public:
             return taken ? entry->imm : (entry->instr_pc + 1);
         }
 
-        // div/rem by zero
+        // div/rem by zero or INT_MIN/-1 overflow
         if((entry->op == OpCode::DIV || entry->op == OpCode::REM) && entry->value2 == 0){
             entry->exception = true;
             return 0;
+        }
+        if((entry->op == OpCode::DIV || entry->op == OpCode::REM) && entry->value1 == INT_MIN && entry->value2 == -1){
+            if (entry->op == OpCode::DIV) {
+                entry->exception = true;
+                return 0;
+            } else {
+                return 0; // INT_MIN % -1 = 0
+            }
         }
 
         long long res = 0;

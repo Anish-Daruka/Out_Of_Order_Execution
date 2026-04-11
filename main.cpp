@@ -9,8 +9,6 @@ int main(int argc, char* argv[]) {
         cerr << "Usage: ./main <filename.s> [-cycles N]\n";
         return 1;
     }
-    cout<<"Hello World!"<<endl;
-
     int max_cycles = -1;
     if (argc == 4 && string(argv[2]) == "-cycles") {
         max_cycles = stoi(argv[3]);
@@ -29,11 +27,6 @@ int main(int argc, char* argv[]) {
     int cycle_count = 0;
 
     while (cpu.step()) {
-        // cpu.dumpArchitecturalState();
-        // for (int i=0;i<cpu.Memory.size();i++) {
-        //     cout << cpu.Memory[i] << " ";
-        // }
-        // cout << endl;
         cycle_count++;
         if (max_cycles != -1 && cycle_count == max_cycles) {
             cout << "\n[!] Execution halted at cycle limit: " << max_cycles << "\n";

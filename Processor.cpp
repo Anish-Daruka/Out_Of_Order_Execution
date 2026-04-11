@@ -93,6 +93,7 @@ void Processor::flush() {
     for(auto &entry : ROB){ entry.free = true; entry.ready = false; entry.tag = -1; }
     rob_head = rob_tail = rob_count = 0;
     decode_instr_idx = -1;
+    flushed_this_cycle = true;
 }
 
 //broadcast the result on the CDB to update the RS and ROB entries waiting for that result
@@ -304,40 +305,34 @@ void Processor::stageExecuteAndBroadcast() {
         }
     }
 
+
+    // LSQ: advance and start BEFORE ALU broadcasts so LSQ can't start new entries based on same-cycle ALU results
+    LSQEntry* lsq_completed = lsq ? lsq->executeCycle(Memory) : nullptr;
+
+    // broadcast ALU completions
     for(auto &entry : ToBeBroadcasted){
         broadcastOnCDB(entry);
     }
-}
 
-
-void Processor::LSQAndBroadcast() {
-    if(lsq == nullptr) return;
-    LSQEntry* completed = lsq->executeCycle(Memory);
-    if(completed == nullptr) return;
-
-    int tag = completed->tag;
-
-    // update ROB entry
-    ROBEntry& rob_entry = getROBbyTag(tag);
-    rob_entry.value   = completed->result;
-    rob_entry.address = completed->address;
-    rob_entry.ready   = true;
-    rob_entry.exception = completed->exception;
-
-    // for LW: update RAT so dependent instructions can read the value
-    if(completed->op == OpCode::LW){
-        for(int i = 0; i < (int)RAT.size(); i++){
-            if(RAT[i].tag == tag){
-                RAT[i].valid = true;
-                RAT[i].tag = -1;
-                RAT[i].value = completed->result;
+    if(lsq_completed){
+        int tag = lsq_completed->tag;
+        ROBEntry& rob_entry = getROBbyTag(tag);
+        rob_entry.value   = lsq_completed->result;
+        rob_entry.address = lsq_completed->address;
+        rob_entry.ready   = true;
+        rob_entry.exception = lsq_completed->exception;
+        if(lsq_completed->op == OpCode::LW){
+            for(int i = 0; i < (int)RAT.size(); i++){
+                if(RAT[i].tag == tag){
+                    RAT[i].valid = true;
+                    RAT[i].tag = -1;
+                    RAT[i].value = lsq_completed->result;
+                }
             }
         }
+        for(auto &unit : ExecutionUnits) unit.capture(tag, lsq_completed->result);
+        lsq->capture(tag, lsq_completed->result);
     }
-
-    // wake up waiting RS and LSQ entries
-    for(auto &unit : ExecutionUnits) unit.capture(tag, completed->result);
-    lsq->capture(tag, completed->result);
 }
 
 void Processor::stageCommit() {
@@ -423,8 +418,9 @@ void Processor::commitInstruction(ROBEntry& entry) {
         if(entry.dest_reg != 0) // x0 always stays 0
             ARF[entry.dest_reg] = entry.value;
         // clear RAT entry if no newer instruction is pending for this register
-        if(RAT[entry.dest_reg].tag == -1)
-            RAT[entry.dest_reg].valid = false;
+        if(RAT[entry.dest_reg].tag == entry.tag) { RAT[entry.dest_reg].valid = false; RAT[entry.dest_reg].tag = -1; } //
+            //RAT[entry.dest_reg].valid = false;
+
     }
 }
 
@@ -460,17 +456,15 @@ ExecutionUnit& Processor::getExecutionUnitForOp(OpCode op) {
 // ----- Main step function -----
 bool Processor::step() {
     //stop when no further instructions to fetch, decode, execute or commit
- 
     if(pc >= (int)inst_memory.size() && rob_count == 0 && fetch_instr_idx == -1 && decode_instr_idx == -1) return false;
 
     // process stages in reverse pipeline order
+    flushed_this_cycle = false;
     stageCommit();
     stageExecuteAndBroadcast();
-    LSQAndBroadcast();
     if(decode_instr_idx != -1) stageDecode();
-    if(fetch_instr_idx != -1) stageFetch(); //fetches current instruction and moves it to decode,then decides which instruction will be fetched in next cycle
+    if(fetch_instr_idx != -1 && !flushed_this_cycle) stageFetch();
 
-   
     clock_cycle++;
     if(exception){
         return false;

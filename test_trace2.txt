@@ -1,0 +1,7 @@
+Compiling simulator:
+g++ -std=c++17 -Wall -g main.cpp Processor.cpp -o main
+Build successful, 'main' created.
+Preprocessing main...
+python3 PreProcessor.py 4
+Preprocessing complete.
+./main preProcessed/processed4.txt > output/output4.txt
