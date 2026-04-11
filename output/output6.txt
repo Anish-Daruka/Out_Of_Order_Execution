@@ -1,7 +1,7 @@
 
-[+] Execution complete naturally in 2202 cycles.
+[+] Execution complete naturally in 2353 cycles.
 
-=== ARCHITECTURAL STATE (CYCLE 2202) ===
+=== ARCHITECTURAL STATE (CYCLE 2353) ===
 x0:    0 | x1:    1 | x2:    2 | x3:    0 | x4:    0 | x5:    1 | x6: 12303 | x7:    0 | 
 x8: 10000 | x9:    0 | x10:    4 | x11: 9793 | x12:    0 | x13:    0 | x14:    0 | x15: 2303 | 
 x16:    0 | x17:    0 | x18:    0 | x19:    0 | x20:    0 | x21:    0 | x22:    0 | x23:    0 | 

@@ -86,6 +86,7 @@ void Processor::flush() {
             }
         }
         unit.in_flight.clear();
+        unit.pending_free.clear();
     }
     if(lsq) lsq->queue.clear();
 
@@ -232,7 +233,7 @@ void Processor::stageDecode() {
     bool is_branch = (op == OpCode::BEQ || op == OpCode::BNE ||
                       op == OpCode::BLT || op == OpCode::BLE);
     bool writes_reg = !is_branch && (op != OpCode::SW);
-    if(writes_reg){
+    if(writes_reg && instr.dest != 0){
         RAT[instr.dest].tag = tag;
         RAT[instr.dest].valid = false;
     }
@@ -260,6 +261,14 @@ void Processor::stageExecuteAndBroadcast() {
     std::vector<RSEntry*> ToBeBroadcasted;
 
     for(auto &unit : ExecutionUnits){
+        // free RS slots that completed in the previous cycle
+        for(auto &rs_slot : unit.RS){
+            for(auto &pf : unit.pending_free){
+                if(rs_slot == pf){ rs_slot = nullptr; break; }
+            }
+        }
+        unit.pending_free.clear();
+
         // advance all in-flight entries by one cycle, collect completions
         for(auto &entry : unit.in_flight){
             if(entry == nullptr) continue;
@@ -267,9 +276,7 @@ void Processor::stageExecuteAndBroadcast() {
             if(entry->num_cycles_executed == unit.latency){
                 entry->result = unit.evaluate(entry);
                 ToBeBroadcasted.push_back(entry);
-                for(auto &rs_slot : unit.RS){
-                    if(rs_slot == entry){ rs_slot = nullptr; break; }
-                }
+                unit.pending_free.push_back(entry); // defer RS free to next cycle
                 entry = nullptr;
             }
         }
@@ -295,9 +302,7 @@ void Processor::stageExecuteAndBroadcast() {
                     // latency-1 unit completes in the same cycle it starts
                     oldest_ready->result = unit.evaluate(oldest_ready);
                     ToBeBroadcasted.push_back(oldest_ready);
-                    for(auto &rs_slot : unit.RS){
-                        if(rs_slot == oldest_ready){ rs_slot = nullptr; break; }
-                    }
+                    unit.pending_free.push_back(oldest_ready); // defer RS free to next cycle
                 } else {
                     unit.in_flight.push_back(oldest_ready);
                 }

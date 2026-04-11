@@ -11,6 +11,7 @@ public:
     int latency;
     std::vector<RSEntry*> RS; // reservation station entries for this unit
     std::vector<RSEntry*> in_flight; // pipelined: entries currently executing
+    std::vector<RSEntry*> pending_free; // RS slots to free at start of next cycle
 
     bool has_result = false;
 

@@ -50,14 +50,31 @@ def preprocess(input_file, output_file=None):
         mem_str = "MEM_INIT " + " ".join(initial_mem_data)
         final_output.append(mem_str)
         
-    for inst in clean_instructions:
+    branch_ops = {'beq', 'bne', 'blt', 'ble'}
+    for pc2, inst in enumerate(clean_instructions):
+        # check if branch target is a raw integer BEFORE label substitution
+        raw_parts = inst.replace(',', ' ').split()
+        raw_branch_offset = None
+        if raw_parts and raw_parts[0].lower() in branch_ops and len(raw_parts) == 4:
+            try:
+                raw_branch_offset = int(raw_parts[3])
+            except ValueError:
+                pass  # it's a label, will be resolved below
+
         for m_label, addr in mem_labels.items():
             inst = re.sub(fr'\b{m_label}\(', f'{addr}(', inst)
-        
+
         for b_label, target_pc in labels.items():
             inst = re.sub(fr'\b{b_label}\b', str(target_pc), inst)
-        
+
         inst = inst.replace(',', ' ')
+
+        # if branch target was a raw number, convert relative offset to absolute PC
+        if raw_branch_offset is not None:
+            parts = inst.split()
+            parts[3] = str(pc2 + raw_branch_offset)
+            inst = ' '.join(parts)
+
         final_output.append(inst)
 
     with open(output_file, 'w') as f:
