@@ -1,9 +1,25 @@
-Test: ORI
-Expected final: x1=8, x2=11; Memory unchanged.
-Cycle trace:
-C1: F(addi x1 x0 8)
-C2: D(i1) | F(ori x2 x1 3)
-C3: E(i1 1/2) | D(i2)
-C4: E(i1 2/2) | E(i2 1/1)
-C5: C(i1)
-C6: C(i2)
+TC18 (store then load same address)
+
+Instructions:
+I1: addi x1 x0 0
+I2: addi x2 x0 33
+I3: sw   x2 0(x1)
+I4: lw   x3 0(x1)
+
+Pipeline table (X-axis = cycle, Y-axis = instruction)
+Legend: F=Fetch, D=Decode, E=Execute/Broadcast, W=Commit(Writeback)
+
+| Instr \ Cycle | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| I1 | F | D | E | E | W |   |   |   |   |   |   |   |   |   |
+| I2 |   | F | D | E | E | W |   |   |   |   |   |   |   |   |
+| I3 |   |   | F | D |   | E | E | E | E | W |   |   |   |   |
+| I4 |   |   |   | F | D |   |   |   |   | E | E | E | E | W |
+
+Expected final architectural state:
+- x1 = 0
+- x2 = 33
+- x3 = 33
+- Memory[0] = 33
+- All other registers unchanged
+- Total cycles = 14

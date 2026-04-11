@@ -1,10 +1,32 @@
-Test: BNE (taken)
-Expected final: x1=1, x2=0 (skipped), x3=1; Memory unchanged.
-Cycle trace:
-C1: F(addi x1 x0 1)
-C2: D(i1) | F(bne x1 x0 target)
-C3: E(i1 1/2) | D(i2) | F(addi x3 x0 1) [predicted taken]
-C4: E(i1 2/2) | E(i2 1/2) | D(i3)
-C5: C(i1) | E(i2 2/2, taken) | E(i3 1/2)
-C6: C(i2) | E(i3 2/2)
-C7: C(i3)
+TC25 (bne taken)
+
+Instructions:
+I1: addi x1 x0 1
+I2: bne  x1 x0 target   (depends on x1 from I1)
+I3: addi x3 x0 1        (target path, predicted taken)
+
+Pipeline table (X-axis = cycle, Y-axis = instruction)
+Legend: F=Fetch, D=Decode, E=Execute/Broadcast, W=Commit(Writeback), -=stall in RS
+
+| Instr \ Cycle | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| I1: addi x1 x0 1  | F | D | E | E | W |   |   |   |
+| I2: bne x1 x0 tgt |   | F | D | - | E | E | W |   |
+| I3: addi x3 x0 1  |   |   | F | D | E | E |   | W |
+
+Notes:
+- Cycle 2: bne fetched; branch predictor state=0 -> predict taken -> fetch PC3 next
+- Cycle 3: bne decodes; src1=x1 has RAT tag pending (addi x1 in flight) -> stalls in RS
+- Cycle 4: addi x1 completes (E2/2), broadcasts x1=1 -> wakes bne in BRANCH RS
+- Cycle 5: bne and addi x3 both start executing (E1/2)
+- Cycle 6: both complete (E2/2)
+- Cycle 7: bne commits (actual_next_pc=3 == predicted_pc=3 -> correct, no flush)
+- Cycle 8: addi x3 commits
+
+Expected final architectural state:
+- x1 = 1
+- x2 = 0 (addi x2 x0 99 was never fetched; predicted taken skipped PC2)
+- x3 = 1
+- All other registers = 0
+- Memory unchanged (all 0 for this testcase)
+- Total cycles = 8

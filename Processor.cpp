@@ -227,13 +227,17 @@ void Processor::stageDecode() {
         }
     }
 
-    // update RAT for destination register
-    RAT[instr.dest].tag = tag;
-    RAT[instr.dest].valid = false;
+    // update RAT for destination register (branches and SW don't write to registers)
+    bool is_branch = (op == OpCode::BEQ || op == OpCode::BNE ||
+                      op == OpCode::BLT || op == OpCode::BLE);
+    bool writes_reg = !is_branch && (op != OpCode::SW);
+    if(writes_reg){
+        RAT[instr.dest].tag = tag;
+        RAT[instr.dest].valid = false;
+    }
 
     // for branches: store imm (target) and instr_pc so evaluate can compute actual next PC
-    if(op == OpCode::BEQ || op == OpCode::BNE ||
-       op == OpCode::BLT || op == OpCode::BLE){
+    if(is_branch){
         new_RS_entry->imm = instr.imm;
         new_RS_entry->instr_pc = instr.pc;
     }
@@ -286,7 +290,16 @@ void Processor::stageExecuteAndBroadcast() {
             }
             if(oldest_ready != nullptr){
                 oldest_ready->num_cycles_executed = 1;
-                unit.in_flight.push_back(oldest_ready);
+                if(unit.latency == 1){
+                    // latency-1 unit completes in the same cycle it starts
+                    oldest_ready->result = unit.evaluate(oldest_ready);
+                    ToBeBroadcasted.push_back(oldest_ready);
+                    for(auto &rs_slot : unit.RS){
+                        if(rs_slot == oldest_ready){ rs_slot = nullptr; break; }
+                    }
+                } else {
+                    unit.in_flight.push_back(oldest_ready);
+                }
             }
         }
     }

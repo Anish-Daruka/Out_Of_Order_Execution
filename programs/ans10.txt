@@ -1,9 +1,20 @@
-Test: ADDI
-Expected final: x1=4, x2=11; Memory unchanged.
-Cycle trace:
-C1: F(addi x1 x0 4)
-C2: D(i1) | F(addi x2 x1 7)
-C3: E(i1 1/2) | D(i2)
-C4: E(i1 2/2) | E(i2 1/2)
-C5: C(i1) | E(i2 2/2)
-C6: C(i2)
+TC10 (dependent addi)
+
+Instructions:
+I1: addi x1 x0 4
+I2: addi x2 x1 7
+
+Pipeline table (X-axis = cycle, Y-axis = instruction)
+Legend: F=Fetch, D=Decode, E=Execute/Broadcast, W=Commit(Writeback)
+
+| Instr \ Cycle | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+|---|---|---|---|---|---|---|---|
+| I1 | F | D | E | E | W |   |   |
+| I2 |   | F | D |   | E | E | W |
+
+Expected final architectural state:
+- x1 = 4
+- x2 = 11
+- All other registers = 0
+- Memory unchanged (all 0 for this testcase)
+- Total cycles = 7

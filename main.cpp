@@ -9,6 +9,7 @@ int main(int argc, char* argv[]) {
         cerr << "Usage: ./main <filename.s> [-cycles N]\n";
         return 1;
     }
+    cout<<"Hello World!"<<endl;
 
     int max_cycles = -1;
     if (argc == 4 && string(argv[2]) == "-cycles") {

@@ -1,9 +1,0 @@
-Test: BLE (taken)
-Expected final: x1=0 (skipped), x2=1; Memory unchanged.
-Cycle trace:
-C1: F(ble x0 x0 target)
-C2: D(i1) | F(addi x2 x0 1) [predicted taken]
-C3: E(i1 1/2) | D(i2)
-C4: E(i1 2/2, taken) | E(i2 1/2)
-C5: C(i1) | E(i2 2/2)
-C6: C(i2)

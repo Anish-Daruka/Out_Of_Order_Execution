@@ -1,2 +1,5 @@
-addi x1 x0 8
-ori x2 x1 3
+MEM_INIT 0
+addi x1 x0 0
+addi x2 x0 33
+sw x2 0(x1)
+lw x3 0(x1)

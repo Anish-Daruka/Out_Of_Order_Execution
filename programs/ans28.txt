@@ -1,9 +1,20 @@
-Test: J
-Expected final: x1=0 (skipped), x2=1; Memory unchanged.
-Cycle trace:
-C1: F(j target) -> PC jumps to target immediately
-C2: F(addi x2 x0 1)
-C3: D(i1)
-C4: E(i1 1/2)
-C5: E(i1 2/2)
-C6: C(i1)
+TC28 (j)
+
+Instructions:
+I1: j    target
+I2: addi x2 x0 1    (target path)
+
+Pipeline table (X-axis = cycle, Y-axis = instruction)
+Legend: F=Fetch, D=Decode, E=Execute/Broadcast, W=Commit(Writeback)
+
+| Instr \ Cycle | 1 | 2 | 3 | 4 | 5 | 6 |
+|---|---|---|---|---|---|---|
+| I1 | F |   |   |   |   |   |
+| I2 |   | F | D | E | E | W |
+
+Expected final architectural state:
+- x1 = 0 (skipped wrong-path instruction)
+- x2 = 1
+- All other registers = 0
+- Memory unchanged (all 0 for this testcase)
+- Total cycles = 6

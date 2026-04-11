@@ -1,9 +1,0 @@
-Test: ADDI
-Expected final: x1=4, x2=11; Memory unchanged.
-Cycle trace:
-C1: F(addi x1 x0 4)
-C2: D(i1) | F(addi x2 x1 7)
-C3: E(i1 1/2) | D(i2)
-C4: E(i1 2/2) | E(i2 1/2)
-C5: C(i1) | E(i2 2/2)
-C6: C(i2)

@@ -1,2 +1,0 @@
-addi x1 x0 14
-andi x2 x1 5

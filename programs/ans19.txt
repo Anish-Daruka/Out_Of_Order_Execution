@@ -1,9 +1,21 @@
-Test: XORI
-Expected final: x1=8, x2=11; Memory unchanged.
-Cycle trace:
-C1: F(addi x1 x0 8)
-C2: D(i1) | F(xori x2 x1 3)
-C3: E(i1 1/2) | D(i2)
-C4: E(i1 2/2) | E(i2 1/1)
-C5: C(i1)
-C6: C(i2)
+TC19 (chained updates to same destination)
+
+Instructions:
+I1: addi x1 x0 3
+I2: addi x1 x1 4
+I3: addi x1 x1 5
+
+Pipeline table (X-axis = cycle, Y-axis = instruction)
+Legend: F=Fetch, D=Decode, E=Execute/Broadcast, W=Commit(Writeback)
+
+| Instr \ Cycle | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
+|---|---|---|---|---|---|---|---|---|---|
+| I1 | F | D | E | E | W |   |   |   |   |
+| I2 |   | F | D |   | E | E | W |   |   |
+| I3 |   |   | F | D |   |   | E | E | W |
+
+Expected final architectural state:
+- x1 = 12
+- All other registers = 0
+- Memory unchanged (all 0 for this testcase)
+- Total cycles = 9

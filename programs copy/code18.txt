@@ -1,2 +1,0 @@
-addi x1 x0 8
-ori x2 x1 3

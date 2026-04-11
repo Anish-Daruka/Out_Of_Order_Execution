@@ -1,13 +1,23 @@
-Test: REM
-Expected final: x1=9, x2=2, x3=1; Memory unchanged.
-Cycle trace:
-C1: F(addi x1 x0 9)
-C2: D(i1) | F(addi x2 x0 2)
-C3: E(i1 1/2) | D(i2) | F(rem x3 x1 x2)
-C4: E(i1 2/2) | E(i2 1/2) | D(i3)
-C5: C(i1) | E(i2 2/2) | E(i3 1/5)
-C6: C(i2) | E(i3 2/5)
-C7: E(i3 3/5)
-C8: E(i3 4/5)
-C9: E(i3 5/5)
-C10: C(i3)
+TC13 (rem)
+
+Instructions:
+I1: addi x1 x0 9
+I2: addi x2 x0 2
+I3: rem  x3 x1 x2
+
+Pipeline table (X-axis = cycle, Y-axis = instruction)
+Legend: F=Fetch, D=Decode, E=Execute/Broadcast, W=Commit(Writeback)
+
+| Instr \ Cycle | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| I1 | F | D | E | E | W |   |   |   |   |   |   |
+| I2 |   | F | D | E | E | W |   |   |   |   |   |
+| I3 |   |   | F | D |   | E | E | E | E | E | W |
+
+Expected final architectural state:
+- x1 = 9
+- x2 = 2
+- x3 = 1
+- All other registers = 0
+- Memory unchanged (all 0 for this testcase)
+- Total cycles = 11

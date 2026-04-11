@@ -1,2 +1,0 @@
-addi x1 x0 2
-slti x2 x1 5

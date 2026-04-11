@@ -1,3 +1,4 @@
-addi x1 x0 6
-addi x2 x0 3
-xor x3 x1 x2
+addi x1 x0 2
+addi x2 x0 5
+slt x3 x1 x2
+slti x4 x2 3
