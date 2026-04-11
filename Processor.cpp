@@ -135,19 +135,22 @@ void Processor::stageFetch() {
     if(fetch_instr_idx == -1) return; // no instruction to fetch, stall
 
     Instruction& instr = inst_memory[fetch_instr_idx];
+    if(decode_instr_idx != -1) return; // decode stage is busy, stall
+    // move the fetched instruction to decode stage
+    decode_instr_idx = fetch_instr_idx;
     if(instr.op == OpCode::J)//Jump completes in fetch stage itself
     {
         pc = fetch_instr_idx + instr.imm;
         if(pc < (int)inst_memory.size())
             fetch_instr_idx = pc;
         else
-            fetch_instr_idx = -1; 
+            fetch_instr_idx = -1;
         return;
     }
 
-    if(decode_instr_idx != -1) return; // decode stage is busy, stall
-    // move the fetched instruction to decode stage
-    decode_instr_idx = fetch_instr_idx;
+    // if(decode_instr_idx != -1) return; // decode stage is busy, stall
+    // // move the fetched instruction to decode stage
+    // decode_instr_idx = fetch_instr_idx;
 
     //decide the next instruction to be fetched in the next cycle
     if(instr.op == OpCode::BEQ || instr.op == OpCode::BNE ||

@@ -19,7 +19,7 @@ compile:
 # Update this target to run whatever script or 
 # program you wrote to preprocess the assembly labels. 
 # Example below assumes a Python script named 'compiler.py'.
-run: 
+run:compile
 	@echo "Preprocessing main..."
 	python3 preprocessor.py $(FILE)
 	@echo "Preprocessing complete."
