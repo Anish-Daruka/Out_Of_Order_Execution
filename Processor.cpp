@@ -28,7 +28,6 @@ Processor::Processor(ProcessorConfig& config) {
 
 // load the program from the input file into instruction memory
 void Processor::loadProgram(const std::string& filename) {
-    std::cerr<<"Warning: Memory initialization detected. If this was intentional, ignore this message. If not, check the input file format."<<std::endl;
     std::ifstream file(filename);
     std::string instr;
     std::string first_line;
@@ -97,6 +96,7 @@ void Processor::flush() {
     for(auto &entry : ROB){ entry.free = true; entry.ready = false; entry.tag = -1; }
     rob_head = rob_tail = rob_count = 0;
     decode_instr_idx = -1;
+    pending_commit = false;
     flushed_this_cycle = true;
 }
 
@@ -175,6 +175,16 @@ void Processor::stageDecode() {
     
     if(isROBFull()) return; // ROB is full, stall
 
+
+    // jump: allocate ROB entry, mark ready immediately (no execution unit needed)
+    if(op == OpCode::J){
+        seq_num++;
+        int tag = seq_num;
+        pushToROB(op, tag, 0, 0);
+        getROBbyTag(tag).ready = true;
+        decode_instr_idx = -1;
+        return;
+    }
 
     //if it is lw and sw
     if(op == OpCode::LW || op == OpCode::SW){
@@ -363,12 +373,9 @@ void Processor::stageCommit() {
     // if flush was triggered (branch misprediction), ROB is already cleared — skip pop/freeHead
     if(rob_count == 0) return;
 
-    // free LSQ head for memory instructions
-    if(head_entry.op == OpCode::LW || head_entry.op == OpCode::SW)
-        lsq->freeHead();
-
-    //pop the head of the ROB
-    popROBHead();
+    // defer pop to end of this cycle (after all stages run)
+    pending_commit = true;
+    pending_commit_op = head_entry.op;
 }
 
 
@@ -476,10 +483,19 @@ bool Processor::step() {
     if(decode_instr_idx != -1) stageDecode();
     if(fetch_instr_idx != -1 && !flushed_this_cycle) stageFetch();
 
+    // pop ROB head now (after all stages have run this cycle)
+    if(pending_commit){
+        pending_commit = false;
+        if(pending_commit_op == OpCode::LW || pending_commit_op == OpCode::SW)
+            lsq->freeHead();
+        popROBHead();
+    }
+
     clock_cycle++;
     if(exception){
         return false;
     }
+    if(pc >= (int)inst_memory.size() && rob_count == 0 && fetch_instr_idx == -1 && decode_instr_idx == -1) return false;
     return true;
 }
 //check architectural state
@@ -489,6 +505,7 @@ void Processor::dumpArchitecturalState() {
         std::cout << "x" << i << ": " << std::setw(4) << ARF[i] << " | ";
         if ((i+1) % 8 == 0) std::cout << std::endl;
     }
+    
     if (exception) {
         std::cout << "EXCEPTION raised by instruction " << pc + 1 << std::endl;
     }
